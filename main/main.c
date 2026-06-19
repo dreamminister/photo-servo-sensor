@@ -11,39 +11,37 @@
 static const char *TAG = "LIGHT_SERVO_CTRL";
 
 // --- Configuration ---
-#define PHOTO_SENSOR_ADC_CHANNEL ADC_CHANNEL_3 // GPIO 4 is ADC1 Channel 3 on ESP32-S3
-#define SERVO_GPIO               5             // GPIO 5 for Servo PWM
-#define LIGHT_THRESHOLD_HIGH     600           // mV threshold to enter BRIGHT state
-#define LIGHT_THRESHOLD_LOW      400           // mV threshold to enter DARK state
+#define PHOTO_SENSOR_ADC_CHANNEL ADC_CHANNEL_3 // GPIO 4 
+#define SERVO_GPIO               5             // GPIO 5 for Servo 
+#define LIGHT_THRESHOLD_HIGH     600           // mV BRIGHT state
+#define LIGHT_THRESHOLD_LOW      400           // mV DARK state
 
 // Servo PWM Parameters (Standard 50Hz Servo)
 #define SERVO_CLK_SRC            LEDC_AUTO_CLK
 #define SERVO_SPEED_MODE         LEDC_LOW_SPEED_MODE
 #define SERVO_CHANNEL            LEDC_CHANNEL_0
 #define SERVO_TIMER              LEDC_TIMER_0
-#define SERVO_DUTY_RES           LEDC_TIMER_14_BIT // 14-bit resolution (0 to 16383)
+#define SERVO_DUTY_RES           LEDC_TIMER_14_BIT // 14-bit (0 to 16383)
 
-// Servo Pulse Width Limits (Standard 0.5ms to 2.5ms)
-// 50Hz frequency means a period of 20ms.
-// 14-bit max value = 16384. 
+// Servo Pulse Width Limits (0.5ms to 2.5ms)
+// 50Hz frequency == period of 20ms
+// 14-bit max value = 16384
 // 0.5ms = (0.5/20) * 16384 = 410
 // 2.5ms = (2.5/20) * 16384 = 2048
 #define SERVO_MIN_DUTY           410   // Approx 0 degrees
 #define SERVO_MAX_DUTY           2048  // Approx 180 degrees
 
-// State Tracking
 typedef enum {
     STATE_DARK,
     STATE_BRIGHT
 } LightState_t;
 
-// --- Helper Functions ---
 void init_servo(void) {
     ledc_timer_config_t ledc_timer = {
         .speed_mode       = SERVO_SPEED_MODE,
         .timer_num        = SERVO_TIMER,
         .duty_resolution  = SERVO_DUTY_RES,
-        .freq_hz          = 50, // Standard servo frequency
+        .freq_hz          = 50, 
         .clk_cfg          = SERVO_CLK_SRC,
     };
     ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
@@ -54,7 +52,7 @@ void init_servo(void) {
         .timer_sel      = SERVO_TIMER,
         .intr_type      = LEDC_INTR_DISABLE,
         .gpio_num       = SERVO_GPIO,
-        .duty           = SERVO_MIN_DUTY, // Start at 0 degrees
+        .duty           = SERVO_MIN_DUTY,
         .hpoint         = 0
     };
     ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
@@ -74,10 +72,10 @@ LightState_t get_light_state(int voltage_mv, LightState_t current_state)
 }
 
 void app_main(void) {
-    // 1. Initialize Servo
+
     init_servo();
 
-    // 2. Initialize ADC (Oneshot mode) for Pin 4
+    // ADC for Pin 4
     adc_oneshot_unit_handle_t adc1_handle;
     adc_oneshot_unit_init_cfg_t init_config1 = {
         .unit_id = ADC_UNIT_1,
@@ -85,16 +83,16 @@ void app_main(void) {
     ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config1, &adc1_handle));
 
     adc_oneshot_chan_cfg_t config = {
-        .bitwidth = ADC_BITWIDTH_DEFAULT, // Typically 12-bit
-        .atten    = ADC_ATTEN_DB_12,      // Allows reading full range up to ~3.3V
+        .bitwidth = ADC_BITWIDTH_DEFAULT, 
+        .atten    = ADC_ATTEN_DB_12,      
     };
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc1_handle, PHOTO_SENSOR_ADC_CHANNEL, &config));
 
-    // Optional but recommended: Setup calibration to get actual millivolts
+    // calibration 
     adc_cali_handle_t adc1_cali_handle = NULL;
     bool do_calibration = false;
     
-    // Simple check/init for calibration
+    // check/init for calibration
     adc_cali_curve_fitting_config_t cali_config = {
         .unit_id = ADC_UNIT_1,
         .chan = PHOTO_SENSOR_ADC_CHANNEL,
@@ -103,9 +101,8 @@ void app_main(void) {
         do_calibration = true;
     }
 
-    // 3. Main Loop Logic
     LightState_t current_state = STATE_DARK;
-    set_servo_angle(SERVO_MIN_DUTY); // Initial servo position
+    set_servo_angle(SERVO_MIN_DUTY); 
 
     int adc_raw;
     int voltage_mv;
@@ -138,10 +135,9 @@ void app_main(void) {
             current_state = detected_state;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(250)); // Sample every 250ms
+        vTaskDelay(pdMS_TO_TICKS(250));
     }
 
-    // Clean up (never reached in this loop environment, but good practice)
     if (do_calibration) {
         adc_cali_delete_scheme_curve_fitting(adc1_cali_handle);
     }
